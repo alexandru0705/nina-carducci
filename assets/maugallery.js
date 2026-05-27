@@ -40,6 +40,7 @@
       $(this).fadeIn(500);
     });
   };
+  
   $.fn.mauGallery.defaults = {
     columns: 3,
     lightBox: true,
@@ -48,6 +49,7 @@
     tagsPosition: "bottom",
     navigation: true
   };
+  
   $.fn.mauGallery.listeners = function(options) {
     $(".gallery-item").on("click", function() {
       if (options.lightBox && $(this).prop("tagName") === "IMG") {
@@ -58,13 +60,17 @@
     });
 
     $(".gallery").on("click", ".nav-link", $.fn.mauGallery.methods.filterByTag);
-    $(".gallery").on("click", ".mg-prev", () =>
-      $.fn.mauGallery.methods.prevImage(options.lightboxId)
-    );
-    $(".gallery").on("click", ".mg-next", () =>
-      $.fn.mauGallery.methods.nextImage(options.lightboxId)
-    );
+    
+    // CORRECTION BUG NAV : Utilisation de fonctions anonymes standards à la place des fonctions fléchées () =>
+    // pour garantir que le scope global de l'instance mauGallery et l'argument options.lightboxId soient correctement transmis.
+    $(".gallery").on("click", ".mg-prev", function() {
+      $.fn.mauGallery.methods.prevImage(options.lightboxId);
+    });
+    $(".gallery").on("click", ".mg-next", function() {
+      $.fn.mauGallery.methods.nextImage(options.lightboxId);
+    });
   };
+  
   $.fn.mauGallery.methods = {
     createRowWrapper(element) {
       if (
@@ -119,82 +125,77 @@
         .attr("src", element.attr("src"));
       $(`#${lightboxId}`).modal("toggle");
     },
-    prevImage() {
+    
+    prevImage(lightboxId) {
       let activeImage = null;
       $("img.gallery-item").each(function() {
         if ($(this).attr("src") === $(".lightboxImage").attr("src")) {
           activeImage = $(this);
         }
       });
+      
       let activeTag = $(".tags-bar span.active-tag").data("images-toggle");
       let imagesCollection = [];
-      if (activeTag === "all") {
-        $(".item-column").each(function() {
-          if ($(this).children("img").length) {
-            imagesCollection.push($(this).children("img"));
-          }
-        });
-      } else {
-        $(".item-column").each(function() {
-          if (
-            $(this)
-              .children("img")
-              .data("gallery-tag") === activeTag
-          ) {
-            imagesCollection.push($(this).children("img"));
-          }
-        });
-      }
-      let index = 0,
-        next = null;
-
-      $(imagesCollection).each(function(i) {
-        if ($(activeImage).attr("src") === $(this).attr("src")) {
-          index = i ;
+      
+      // CORRECTION BUG PREV : Ciblage direct de ".gallery-item" au lieu d'itérer sur ".item-column" 
+      // et de filtrer via un sélecteur d'enfant direct instable. Cela permet de reconstruire un tableau d'éléments jQuery fiable.
+      $(".gallery-item").each(function() {
+        if (activeTag === "all" || $(this).data("gallery-tag") === activeTag) {
+          imagesCollection.push($(this));
         }
       });
-      next =
-        imagesCollection[index] ||
-        imagesCollection[imagesCollection.length - 1];
-      $(".lightboxImage").attr("src", $(next).attr("src"));
-    },
-    nextImage() {
-      let activeImage = null;
-      $("img.gallery-item").each(function() {
-        if ($(this).attr("src") === $(".lightboxImage").attr("src")) {
-          activeImage = $(this);
-        }
-      });
-      let activeTag = $(".tags-bar span.active-tag").data("images-toggle");
-      let imagesCollection = [];
-      if (activeTag === "all") {
-        $(".item-column").each(function() {
-          if ($(this).children("img").length) {
-            imagesCollection.push($(this).children("img"));
-          }
-        });
-      } else {
-        $(".item-column").each(function() {
-          if (
-            $(this)
-              .children("img")
-              .data("gallery-tag") === activeTag
-          ) {
-            imagesCollection.push($(this).children("img"));
-          }
-        });
-      }
-      let index = 0,
-        next = null;
-
+      
+      let index = -1;
       $(imagesCollection).each(function(i) {
         if ($(activeImage).attr("src") === $(this).attr("src")) {
           index = i;
         }
       });
-      next = imagesCollection[index] || imagesCollection[0];
-      $(".lightboxImage").attr("src", $(next).attr("src"));
+      
+      let prevIndex = index - 1;
+      if (prevIndex < 0) {
+        prevIndex = imagesCollection.length - 1;
+      }
+      
+      let prevImageObj = imagesCollection[prevIndex];
+      $(".lightboxImage").attr("src", $(prevImageObj).attr("src"));
     },
+
+    nextImage(lightboxId) {
+      let activeImage = null;
+      $("img.gallery-item").each(function() {
+        if ($(this).attr("src") === $(".lightboxImage").attr("src")) {
+          activeImage = $(this);
+        }
+      });
+      
+      let activeTag = $(".tags-bar span.active-tag").data("images-toggle");
+      let imagesCollection = [];
+      
+      // CORRECTION BUG NEXT : Même correction sémantique ici pour garantir que la collection d'images 
+      // respecte strictement le filtre de catégorie sélectionné sans retourner d'objets vides ou undefined.
+      $(".gallery-item").each(function() {
+        if (activeTag === "all" || $(this).data("gallery-tag") === activeTag) {
+          imagesCollection.push($(this));
+        }
+      });
+      
+      let index = -1;
+      $(imagesCollection).each(function(i) {
+        if ($(activeImage).attr("src") === $(this).attr("src")) {
+          index = i;
+        }
+      });
+      
+      let nextIndex = index + 1;
+      if (nextIndex >= imagesCollection.length) {
+        nextIndex = 0;
+      }
+      
+      let nextImageObj = imagesCollection[nextIndex];
+      $(".lightboxImage").attr("src", $(nextImageObj).attr("src"));
+    },
+    
     createLightBox(gallery, lightboxId, navigation) {
       gallery.append(`<div class="modal fade" id="${
         lightboxId ? lightboxId : "galleryLightbox"
@@ -240,9 +241,10 @@
         return;
       }
       $(".active-tag").removeClass("active active-tag");
-      $(this).addClass("active-tag");
-
-      var tag = $(this).data("images-toggle");
+      $(this).addClass("active active-tag");// CORRECTION BUG FILTRE
+          // by adding "active" class
+     
+          var tag = $(this).data("images-toggle");
 
       $(".gallery-item").each(function() {
         $(this)
