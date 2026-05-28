@@ -4,6 +4,7 @@ import subprocess
 # Define configuration for image types
 SLIDER_DIR = "./assets/images/slider"
 GALLERY_DIR = "./assets/images/gallery"
+IMAGES_DIR = "./assets/images"
 
 def process_slider_images():
     if not os.path.exists(SLIDER_DIR):
@@ -36,8 +37,21 @@ def process_gallery_images():
                 subprocess.run(["magick", input_path, "-resize", "600x", "-quality", "80", out_webp])
                 print(f"Processed gallery asset: {file}")
 
+def process_images():
+    # Only process files in the root folder, not subfolders
+    for file in os.listdir(IMAGES_DIR):
+        if file.lower().endswith(('.jpg', '.jpeg', '.png')):
+            input_path = os.path.join(IMAGES_DIR, file)
+            base_name = os.path.splitext(file)[0]
+            
+            # Example: Generate a 600px width version
+            out_webp = os.path.join(IMAGES_DIR, f"{base_name}-optimized.webp")
+            subprocess.run(["magick", input_path, "-resize", "600x", "-quality", "80", out_webp])
+            print(f"Processed root asset: {file}")
+
 if __name__ == "__main__":
     print("Starting automated image optimization compression...")
     process_slider_images()
     process_gallery_images()
+    process_images()
     print("Done! All assets mirrored to next-gen WebP format.")

@@ -13,3 +13,8 @@ $(document).ready(function() {
         tagsPosition: 'top'
     });
 });
+
+document.getElementById('contact-form').addEventListener('submit', function(event) {
+    event.preventDefault();
+    alert('Merci pour votre message. (Simulation de validation)');
+});
